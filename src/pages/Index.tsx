@@ -1,10 +1,35 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Shield, Search, Lock, CheckCircle, AlertTriangle, FileCheck } from "lucide-react";
+import { Shield, Search, Lock, CheckCircle, AlertTriangle, FileCheck, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 const Index = () => {
   const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary">
@@ -15,9 +40,37 @@ const Index = () => {
             <Shield className="h-8 w-8 text-primary" />
             <span className="text-xl font-bold text-foreground">CertiVerify</span>
           </div>
-          <Button onClick={() => navigate('/verify')} className="bg-primary hover:bg-primary/90">
-            Verify Certificate
-          </Button>
+          <div className="flex items-center gap-4">
+            {!loading && (
+              user ? (
+                <>
+                  <Button onClick={() => navigate('/verify')} className="bg-primary hover:bg-primary/90">
+                    Verify Certificate
+                  </Button>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-muted-foreground">
+                      {user.email}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleLogout}
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/auth')}
+                >
+                  Login / Sign Up
+                </Button>
+              )
+            )}
+          </div>
         </div>
       </header>
 

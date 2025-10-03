@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Shield, Upload, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import UploadZone from "@/components/UploadZone";
 import VerificationResult from "@/components/VerificationResult";
 
@@ -12,6 +13,16 @@ const Verify = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationData, setVerificationData] = useState<any>(null);
+
+  useEffect(() => {
+    // Check if user is logged in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        toast.error("Please login to verify certificates");
+        navigate('/auth');
+      }
+    });
+  }, [navigate]);
 
   const handleFileSelect = (selectedFile: File) => {
     setFile(selectedFile);
