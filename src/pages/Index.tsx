@@ -38,7 +38,7 @@ const Index = () => {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Shield className="h-8 w-8 text-primary" />
-            <span className="text-xl font-bold text-foreground">CertiVerify</span>
+            <span className="text-xl font-bold text-foreground">AcaVerify</span>
           </div>
           <div className="flex items-center gap-4">
             {!loading && (
@@ -200,7 +200,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t bg-card mt-20">
         <div className="container mx-auto px-4 py-8 text-center text-sm text-muted-foreground">
-          <p>© 2025 CertiVerify. A digital initiative for educational integrity in Jharkhand.</p>
+          <p>© 2025 AcaVerify. A digital initiative for educational integrity in Jharkhand.</p>
         </div>
       </footer>
     </div>

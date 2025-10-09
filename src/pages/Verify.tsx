@@ -1,3 +1,4 @@
+// src/pages/Verify.tsx
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,24 +8,108 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import UploadZone from "@/components/UploadZone";
 import VerificationResult from "@/components/VerificationResult";
+import Tesseract from "tesseract.js";
+import * as pdfjsLib from "pdfjs-dist";
+import { GlobalWorkerOptions } from "pdfjs-dist";
 
+// PDF.js worker setup
+GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.js`;
+
+// ---------------------- OCR Functions ----------------------
+/**
+ * Extract text from image or PDF file
+ */
+export async function extractTextFromFile(file: File): Promise<string> {
+  if (file.type.startsWith("image/")) {
+    const result = await Tesseract.recognize(file, "eng", { logger: (m) => console.log(m) });
+    return result.data.text;
+  }
+
+  if (file.type === "application/pdf") {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+    let fullText = "";
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 2 });
+
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const context = canvas.getContext("2d")!;
+      await page.render({ canvas, canvasContext: context, viewport }).promise;
+
+      const dataUrl = canvas.toDataURL("image/png");
+      const pageResult = await Tesseract.recognize(dataUrl, "eng", { logger: (m) => console.log(m) });
+      fullText += pageResult.data.text + "\n";
+    }
+
+    return fullText;
+  }
+
+  throw new Error("Unsupported file type for OCR");
+}
+
+/**
+ * Parse certificate details from extracted text
+ */
+export function parseCertificateText(text: string) {
+  return {
+    studentName:
+      text.match(/(?:Name|Student Name|Candidate Name)[:\s]+([A-Za-z ]+)/i)?.[1]?.trim() || "Unknown",
+
+    rollNumber:
+      text.match(/(?:Roll\s*No|Enrollment\s*No|Registration\s*No)[:\s]+([A-Za-z0-9-]+)/i)?.[1]?.trim() || "Unknown",
+
+    course:
+      text.match(/(?:Course|Program|Program Name)[:\s]+([A-Za-z ]+)/i)?.[1]?.trim() || "Unknown",
+
+    institution:
+      text.match(/(?:University|Board|Institute|College)[:\s]+([A-Za-z ]+)/i)?.[1]?.trim() || "Unknown",
+
+    year:
+      text.match(/(?:Year|Passing Year|Session)[:\s]+(\d{4})/i)?.[1]?.trim() || "Unknown",
+
+    grade:
+      text.match(/(?:Grade|Marks|Result)[:\s]+([A-Za-z0-9+]+)/i)?.[1]?.trim() || "Unknown",
+
+    certificateNumber:
+      text.match(/(?:Certificate\s*No|Cert\s*ID|Cert\s*No)[:\s]+([A-Za-z0-9-]+)/i)?.[1]?.trim() || "Unknown",
+  };
+}
+
+// ---------------------- Type Definitions ----------------------
+type VerificationData = {
+  status: "verified" | "suspicious" | "invalid";
+  confidence: number;
+  extractedData: ReturnType<typeof parseCertificateText>;
+  checks: {
+    formatValidation: boolean;
+    sealAuthenticity: boolean;
+    databaseMatch: boolean;
+    tampering: boolean;
+  };
+  timestamp: string;
+};
+
+// ---------------------- Verify Component ----------------------
 const Verify = () => {
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [verificationData, setVerificationData] = useState<any>(null);
+  const [verificationData, setVerificationData] = useState<VerificationData | null>(null);
 
   useEffect(() => {
-    // Check if user is logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
         toast.error("Please login to verify certificates");
-        navigate('/auth');
+        navigate("/auth");
       }
     });
   }, [navigate]);
 
-  const handleFileSelect = (selectedFile: File) => {
+  const handleFileSelect = (selectedFile: File | null) => {
     setFile(selectedFile);
     setVerificationData(null);
   };
@@ -36,42 +121,43 @@ const Verify = () => {
     }
 
     setIsVerifying(true);
-    
+    toast.info("Extracting data from certificate...");
+
     try {
-      // Simulate verification process with AI-powered analysis
-      await new Promise(resolve => setTimeout(resolve, 2500));
-      
-      // Mock verification result
-      const mockResult = {
-        status: Math.random() > 0.3 ? 'verified' : 'suspicious',
-        confidence: Math.floor(Math.random() * 30) + 70,
-        extractedData: {
-          studentName: "Rahul Kumar",
-          rollNumber: "JH2021CS1234",
-          course: "B.Tech Computer Science",
-          institution: "Birsa Institute of Technology",
-          year: "2021-2025",
-          grade: "A",
-          certificateNumber: "BIT/2025/CS/1234"
-        },
+      const extractedText = await extractTextFromFile(file);
+      console.log("OCR Extracted Text:\n", extractedText);
+
+      const parsedData = parseCertificateText(extractedText);
+      console.log("Parsed Data:", parsedData);
+
+      const filledFields = Object.values(parsedData).filter((v) => v !== "Unknown").length;
+      const confidence = Math.min(filledFields * 15, 100);
+
+      let status: VerificationData["status"] = "invalid";
+      if (confidence > 60) status = "verified";
+      else if (confidence > 40) status = "suspicious";
+
+      const result: VerificationData = {
+        status,
+        confidence,
+        extractedData: parsedData,
         checks: {
-          formatValidation: Math.random() > 0.2,
-          sealAuthenticity: Math.random() > 0.3,
-          databaseMatch: Math.random() > 0.4,
-          tampering: Math.random() < 0.7
+          formatValidation: confidence > 50,
+          sealAuthenticity: confidence > 60,
+          databaseMatch: confidence > 70,
+          tampering: confidence > 80,
         },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
 
-      setVerificationData(mockResult);
-      
-      if (mockResult.status === 'verified') {
-        toast.success("Certificate verified successfully");
-      } else {
-        toast.warning("Certificate verification raised concerns");
-      }
+      setVerificationData(result);
+
+      if (status === "verified") toast.success("Certificate verified successfully");
+      else if (status === "suspicious") toast.warning("Certificate verification raised concerns");
+      else toast.error("Certificate seems invalid");
     } catch (error) {
-      toast.error("Verification failed. Please try again.");
+      console.error("OCR or verification error:", error);
+      toast.error("OCR or verification failed. Please try again.");
     } finally {
       setIsVerifying(false);
     }
@@ -83,16 +169,12 @@ const Verify = () => {
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => navigate('/')}
-            >
+            <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-2">
               <Shield className="h-8 w-8 text-primary" />
-              <span className="text-xl font-bold text-foreground">CertiVerify</span>
+              <span className="text-xl font-bold text-foreground">AcaVerify</span>
             </div>
           </div>
         </div>
@@ -112,10 +194,9 @@ const Verify = () => {
           {/* Upload Section */}
           <Card className="p-8">
             <UploadZone onFileSelect={handleFileSelect} currentFile={file} />
-            
             {file && (
               <div className="mt-6 flex justify-center">
-                <Button 
+                <Button
                   onClick={handleVerify}
                   disabled={isVerifying}
                   size="lg"
@@ -129,13 +210,12 @@ const Verify = () => {
           </Card>
 
           {/* Results Section */}
-          {verificationData && (
-            <VerificationResult data={verificationData} />
-          )}
+          {verificationData && <VerificationResult data={verificationData} />}
         </div>
       </div>
     </div>
   );
 };
 
+// ✅ Default export
 export default Verify;

@@ -68,7 +68,7 @@ const UploadZone = ({ onFileSelect, currentFile }: UploadZoneProps) => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => onFileSelect(null as any)}
+            onClick={() => onFileSelect(null)}
           >
             <X className="h-5 w-5" />
           </Button>

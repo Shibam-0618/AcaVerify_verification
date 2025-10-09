@@ -1,18 +1,11 @@
-# Welcome to your Lovable project
 
-## Project info
-
-**URL**: https://lovable.dev/projects/2c88cffe-5a96-468f-ae93-cc8827d857ee
 
 ## How can I edit this code?
 
 There are several ways of editing your application.
 
-**Use Lovable**
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/2c88cffe-5a96-468f-ae93-cc8827d857ee) and start prompting.
 
-Changes made via Lovable will be committed automatically to this repo.
 
 **Use your preferred IDE**
 
@@ -60,14 +53,6 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
-## How can I deploy this project?
+OCR-Based Certificate Verification
 
-Simply open [Lovable](https://lovable.dev/projects/2c88cffe-5a96-468f-ae93-cc8827d857ee) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+This project includes an OCR (Optical Character Recognition) module that allows automatic extraction and verification of certificate details. Users can upload images or PDF versions of certificates, and the system will detect key information such as student name, roll number, course, institution, year, grade, and certificate number. The extracted data is then cross-checked to determine authenticity and flag any suspicious or invalid certificates. This feature leverages Tesseract.js for OCR processing and pdf.js for rendering PDF files, ensuring accurate recognition and a seamless verification experience.
