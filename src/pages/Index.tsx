@@ -82,7 +82,7 @@ const Index = () => {
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Authenticate educational credentials instantly with our AI-powered platform. 
-            Protecting academic integrity across Jharkhand's institutions.
+            Protecting academic integrity across India.
           </p>
           <div className="flex gap-4 justify-center pt-6">
             <Button 
